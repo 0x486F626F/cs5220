@@ -39,7 +39,7 @@ matmul.o: matmul.c
 	$(CC) -c $(CFLAGS) $(CPPFLAGS) $<
 
 %.o: %.c
-	$(CC) -c $(CFLAGS) $(OPTFLAGS) $(CPPFLAGS) $<
+	$(CC) -c $(CFLAGS) $(OPTFLAGS) $(CPPFLAGS) -mavx -mfma $<
 
 %.o: %.f
 	$(FC) -c $(FFLAGS) $(OPTFLAGS) $<
@@ -60,7 +60,7 @@ dgemm_veclib.o: dgemm_blas.c
 run:    $(TIMINGS)
 
 timing-%.csv: matmul-%
-	OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 ./matmul-$*
+	OPENMP_NUM_THREADS=1 ./matmul-$*
 
 # ---
 #  Rules for plotting
