@@ -39,7 +39,7 @@ matmul.o: matmul.c
 	$(CC) -c $(CFLAGS) $(CPPFLAGS) $<
 
 %.o: %.c
-	$(CC) -c $(CFLAGS) $(OPTFLAGS) $(CPPFLAGS) -mavx -mfma $<
+	$(CC) -c $(CFLAGS) $(OPTFLAGS) $(CPPFLAGS) -mavx -mavx512f -mavx512dq -mfma $<
 
 %.o: %.f
 	$(FC) -c $(FFLAGS) $(OPTFLAGS) $<
