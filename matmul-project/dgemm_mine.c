@@ -231,7 +231,7 @@ void square_dgemm_avx512(const int x, const int y, const int z, const int N,
 }
 
 
-const int BLOCK_SIZE = 24;
+const int BLOCK_SIZE = 16;
 const int KERNEL_SIZE = 8;
 
 void kernel_matmul(const int M, const double *A, const double *B, double *C,
@@ -239,10 +239,10 @@ void kernel_matmul(const int M, const double *A, const double *B, double *C,
         const int X, const int Y, const int Z) {
     int i, j, k;
 
-    for (i = x; i < x+KERNEL_SIZE && i < X; i ++)
-        for (j = y; j < y+KERNEL_SIZE && j < Y; j ++)
-            for (k = z; k < z+KERNEL_SIZE && k < Z; k ++)
-                C[i*M+j] += A[i*M+k] * B[k*M+j];
+    for (i = 0; i < KERNEL_SIZE && x+i < X; i ++)
+        for (j = 0; j < KERNEL_SIZE && y+j < Y; j ++)
+            for (k = 0; k < KERNEL_SIZE && z+k < Z; k ++)
+                C[(i+x)*M+j+y] += A[(i+x)*M+k+z] * B[(k+z)*M+j+y];
 }
 
 void kernel_matmul_avx512(const int M, const double *A, const double *B, double *C,
@@ -257,24 +257,23 @@ void kernel_matmul_avx512(const int M, const double *A, const double *B, double 
     for (i = 0; i < KERNEL_SIZE; i ++) c[i] = _mm512_setzero_pd();
 
     for (i = 0; i < KERNEL_SIZE && x+i < X; i++) {
-        //int len = z+KERNEL_SIZE < Z? KERNEL_SIZE : Z-z;
         for (k = 0; k < KERNEL_SIZE && z+k < Z; k ++)
             a[i*KERNEL_SIZE+k] = _mm512_set1_pd(A[(x+i)*M+z+k]);
     }
 
     for (k = 0; k < KERNEL_SIZE && z+k < Z; k++) {
         int len = y+KERNEL_SIZE < Y? KERNEL_SIZE : Y-y;
-        int base = (z+k)*Z+y;
+        int base = (z+k)*M+y;
         if (len == 8) {
-            b = _mm512_loadu_pd(A + base);
+            b = _mm512_loadu_pd(B + base);
         } else {
-            tmp[0] = A[base];
-            tmp[1] = len > 1 ? A[base+1] : 0;
-            tmp[2] = len > 2 ? A[base+2] : 0;
-            tmp[3] = len > 3 ? A[base+3] : 0;
-            tmp[4] = len > 4 ? A[base+4] : 0;
-            tmp[5] = len > 5 ? A[base+5] : 0;
-            tmp[6] = len > 6 ? A[base+6] : 0;
+            tmp[0] = B[base];
+            tmp[1] = len > 1 ? B[base+1] : 0;
+            tmp[2] = len > 2 ? B[base+2] : 0;
+            tmp[3] = len > 3 ? B[base+3] : 0;
+            tmp[4] = len > 4 ? B[base+4] : 0;
+            tmp[5] = len > 5 ? B[base+5] : 0;
+            tmp[6] = len > 6 ? B[base+6] : 0;
             b = _mm512_set_pd(0, tmp[6], tmp[5], tmp[4], 
                     tmp[3], tmp[2], tmp[1], tmp[0]);
 
@@ -288,7 +287,7 @@ void kernel_matmul_avx512(const int M, const double *A, const double *B, double 
     for (i = 0; i < KERNEL_SIZE && x+i<X; i ++) {
         _mm512_storeu_pd(tmp, c[i]);
         for (j = 0; j < 8; j ++) 
-            if (y+j < Y) C[(x+i)*X + y+j] += tmp[j];
+            if (y+j < Y) C[(x+i)*M + y+j] += tmp[j];
     }
 }
 
@@ -297,24 +296,29 @@ void block_matmul(const int M, const double *A, const double *B, double *C,
         const int X, const int Y, const int Z)
 {
     int x, y, z, xx, yy, zz;
-    for (x = 0; x < X; x++) 
-        for (y = 0; y < Y; y++) {
-            double cij = C[x*M+y];
-            for (z = 0; z < Z; z++) 
-                //C[i*M+j] += A[i*M+k] * B[k*M+j];
-                cij += A[x*M+z] * B[z*M+y];
-            C[x*M+y] = cij;
-        }
     /*
+        // basic matmul
+       for (x = 0; x < X; x++) 
+       for (y = 0; y < Y; y++) {
+       double cij = C[x*M+y];
+       for (z = 0; z < Z; z++) 
+    //C[i*M+j] += A[i*M+k] * B[k*M+j];
+    cij += A[x*M+z] * B[z*M+y];
+    C[x*M+y] = cij;
+    }
+    */
     for (x = 0; x < X; x += KERNEL_SIZE)
         for (y = 0; y < Y; y += KERNEL_SIZE)
             for (z = 0; z < Z; z += KERNEL_SIZE) {
-                for (xx = x; xx < x+KERNEL_SIZE && xx < X; xx ++)
-                    for (yy = y; yy < y+KERNEL_SIZE && yy < Y; yy ++)
-                        for (zz = z; zz < z+KERNEL_SIZE && zz < Z; zz ++)
-                            C[xx*M+yy] += A[xx*M+zz] * B[zz*M+yy];
+                //kernel_matmul(M, A, B, C, x, y, z, X, Y, Z);
+                kernel_matmul_avx512(M, A, B, C, x, y, z, X, Y, Z);
+                /*
+                   for (xx = x; xx < x+KERNEL_SIZE && xx < X; xx ++)
+                   for (yy = y; yy < y+KERNEL_SIZE && yy < Y; yy ++)
+                   for (zz = z; zz < z+KERNEL_SIZE && zz < Z; zz ++)
+                   C[xx*M+yy] += A[xx*M+zz] * B[zz*M+yy];
+                   */
             }
-    */
 }
 
 void square_dgemm(const int M, 
