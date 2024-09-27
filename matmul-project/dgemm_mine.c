@@ -240,9 +240,12 @@ void kernel_matmul(const int M, const double *A, const double *B, double *C,
     int i, j, k;
 
     for (i = 0; i < KERNEL_SIZE && x+i < X; i ++)
-        for (j = 0; j < KERNEL_SIZE && y+j < Y; j ++)
+        for (j = 0; j < KERNEL_SIZE && y+j < Y; j ++ ) {
+            double c = C[(i+x)*M+y+j];
             for (k = 0; k < KERNEL_SIZE && z+k < Z; k ++)
-                C[(i+x)*M+j+y] += A[(i+x)*M+k+z] * B[(k+z)*M+j+y];
+                c += A[(i+x)*M+k+z] * B[(k+z)*M+j+y];
+            C[(i+x)*M+j+y] = c;
+        }
 }
 
 void kernel_matmul_avx512(const int M, const double *A, const double *B, double *C,
@@ -291,34 +294,15 @@ void kernel_matmul_avx512(const int M, const double *A, const double *B, double 
     }
 }
 
-// block to N by N kernel
-void block_matmul(const int M, const double *A, const double *B, double *C,
-        const int X, const int Y, const int Z)
+void basic_matmul(const int M, const double * restrict A, const double * restrict B, 
+        double * restrict C, const int X, const int Y, const int Z)
 {
-    int x, y, z, xx, yy, zz;
-    /*
-        // basic matmul
-       for (x = 0; x < X; x++) 
-       for (y = 0; y < Y; y++) {
-       double cij = C[x*M+y];
-       for (z = 0; z < Z; z++) 
-    //C[i*M+j] += A[i*M+k] * B[k*M+j];
-    cij += A[x*M+z] * B[z*M+y];
-    C[x*M+y] = cij;
-    }
-    */
-    for (x = 0; x < X; x += KERNEL_SIZE)
-        for (y = 0; y < Y; y += KERNEL_SIZE)
-            for (z = 0; z < Z; z += KERNEL_SIZE) {
-                //kernel_matmul(M, A, B, C, x, y, z, X, Y, Z);
-                kernel_matmul_avx512(M, A, B, C, x, y, z, X, Y, Z);
-                /*
-                   for (xx = x; xx < x+KERNEL_SIZE && xx < X; xx ++)
-                   for (yy = y; yy < y+KERNEL_SIZE && yy < Y; yy ++)
-                   for (zz = z; zz < z+KERNEL_SIZE && zz < Z; zz ++)
-                   C[xx*M+yy] += A[xx*M+zz] * B[zz*M+yy];
-                   */
-            }
+    // basic matmul
+    int x, y, z;
+    for (x = 0; x < X; x++) 
+        for (y = 0; y < Y; y++)
+            for (z = 0; z < Z; z++) 
+                C[x*M+y] += A[x*M+z] * B[z*M+y];
 }
 
 void square_dgemm(const int M, 
@@ -326,14 +310,30 @@ void square_dgemm(const int M,
         const double * restrict B, 
         double * restrict C)
 {
-    int i, j, k;
-    for (i = 0; i < M; i += BLOCK_SIZE)
-        for (j = 0; j < M; j += BLOCK_SIZE)
-            for (k = 0; k < M; k += BLOCK_SIZE) { 
-                int x = (i+BLOCK_SIZE > M ? M-i : BLOCK_SIZE);
-                int y = (j+BLOCK_SIZE > M ? M-j : BLOCK_SIZE);
-                int z = (k+BLOCK_SIZE > M ? M-k : BLOCK_SIZE);
-                //block_matmul(M, A, B, C, i, j, k);
-                block_matmul(M, B+i*M+k, A+k*M+j, C+i*M+j, x, y, z);
+    int bi, bj, bk;
+    int x, y, z, xx, yy, zz;
+    for (bi = 0; bi < M; bi += BLOCK_SIZE)
+        for (bj = 0; bj < M; bj += BLOCK_SIZE)
+            for (bk = 0; bk < M; bk += BLOCK_SIZE) { 
+                int X = (bi+BLOCK_SIZE > M ? M-bi : BLOCK_SIZE);
+                int Y = (bj+BLOCK_SIZE > M ? M-bj : BLOCK_SIZE);
+                int Z = (bk+BLOCK_SIZE > M ? M-bk : BLOCK_SIZE);
+                //block_matmul(M, B+bi*M+bk, A+bk*M+bj, C+bi*M+bj, X, Y, Z);
+                for (x = 0; x < X; x += KERNEL_SIZE)
+                    for (y = 0; y < Y; y += KERNEL_SIZE)
+                        for (z = 0; z < Z; z += KERNEL_SIZE) {
+                            int KX = (x+KERNEL_SIZE) > X ? X-x : KERNEL_SIZE;
+                            int KY = (y+KERNEL_SIZE) > Y ? Y-y : KERNEL_SIZE;
+                            int KZ = (z+KERNEL_SIZE) > Z ? Z-z : KERNEL_SIZE;
+                            //basic_matmul(M, B+(bi+x)*M+bk+z, A+(bk+z)*M+bj+y, C+(bi+x)*M+bj+y, KX, KY, KZ);
+                            kernel_matmul_avx512(M, B+(bi+x)*M+bk+z, A+(bk+z)*M+bj+y, C+(bi+x)*M+bj+y, 0, 0, 0, KX, KY, KZ);
+                            /*
+                            for (xx = 0; xx < KX; xx++) 
+                                for (yy = 0; yy < KY; yy++) 
+                                    for (zz = 0; zz < KZ; zz++)
+                                        C[(bi+x+xx)*M+y+yy+bj] += B[(bi+xx+x)*M+z+zz+bk] * A[(bk+zz+z)*M+y+yy+bj];
+                            */
+                        }
+
             }
 }
