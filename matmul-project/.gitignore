@@ -4,6 +4,7 @@ matmul-f2c
 matmul-mine
 matmul-blocked
 matmul-blas
+matmul-mkl
 *.txt
 *.csv
 *.pdf
