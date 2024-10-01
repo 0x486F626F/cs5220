@@ -5,6 +5,11 @@ matmul-mine
 matmul-blocked
 matmul-blas
 matmul-mkl
+matmul-01basic
+matmul-02AVX512
+matmul-03block
+matmul-04copying
+matmul-05unroll
 *.txt
 *.csv
 *.pdf

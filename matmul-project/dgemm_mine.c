@@ -231,7 +231,10 @@ void square_dgemm_avx512(const int x, const int y, const int z, const int N,
 }
 
 
-const int BLOCK_SIZE = 32;
+#ifndef BLOCK_SIZE
+#define BLOCK_SIZE 32
+#endif
+//const int BLOCK_SIZE = 32;
 const int KERNEL_SIZE = 8;
 
 void kernel_matmul(const int M, const double *A, const double *B, double *C,
@@ -298,52 +301,73 @@ void kernel_matmul_avx512(const int M, const double * restrict A,
     */
 }
 
-/*
-void kernel_matmul_avx512(const int M, const double *A, const double *B, double *C,
-        const int x, const int y, const int z,
+void kernel_matmul_avx512_asm(const int M, const double * restrict A, 
+        const double * restrict B, double * restrict C,
         const int X, const int Y, const int Z) {
     int i, j, k;
 
-    __m512d a[KERNEL_SIZE * KERNEL_SIZE];
-    //double KA[KERNEL_SIZE * KERNEL_SIZE];
-    __m512d b;
-    __m512d c[KERNEL_SIZE];
-    double tmp[KERNEL_SIZE];
-    for (i = 0; i < KERNEL_SIZE; i ++) c[i] = _mm512_setzero_pd();
+    asm volatile (
+            "vmovapd 0(%0), %%zmm0      \n\t" // Load row 0 into zmm0
+            "vmovapd 64(%0), %%zmm1     \n\t" // Load row 1 into zmm1
+            "vmovapd 128(%0), %%zmm2    \n\t" // Load row 2 into zmm2
+            "vmovapd 192(%0), %%zmm3    \n\t" // Load row 3 into zmm3
+            "vmovapd 256(%0), %%zmm4    \n\t" // Load row 4 into zmm4
+            "vmovapd 320(%0), %%zmm5    \n\t" // Load row 5 into zmm5
+            "vmovapd 384(%0), %%zmm6    \n\t" // Load row 6 into zmm6
+            "vmovapd 448(%0), %%zmm7    \n\t" // Load row 7 into zmm7
+            :
+            : "r" (B)
+            : "zmm0", "zmm1", "zmm2", "zmm3", "zmm4", "zmm5", "zmm6", "zmm7", "memory"
+            );
+}
 
-    for (i = 0; i < KERNEL_SIZE && x+i < X; i++) {
-        //int len = z+KERNEL_SIZE < Z? KERNEL_SIZE : Z-z;
-        //memcpy(KA+i*KERNEL_SIZE, A+(x+i)*M+z, len*sizeof(double));
-        for (k = 0; k < KERNEL_SIZE && z+k < Z; k ++)
-            a[i*KERNEL_SIZE+k] = _mm512_set1_pd(A[(x+i)*M+z+k]);
-    }
 
-    int len = y+KERNEL_SIZE < Y? KERNEL_SIZE : Y-y;
-    memset(tmp, 0, sizeof(tmp));
-    for (k = 0; k < KERNEL_SIZE && z+k < Z; k++) {
-        int base = (z+k)*M+y;
-        if (len == 8) {
-            b = _mm512_loadu_pd(B + base);
-        } else {
-            memcpy(tmp, B+base, len*sizeof(double));
-            b = _mm512_loadu_pd(tmp);
-            //b = _mm512_set_pd(0, tmp[6], tmp[5], tmp[4], 
-            //        tmp[3], tmp[2], tmp[1], tmp[0]);
+/*
+   void kernel_matmul_avx512(const int M, const double *A, const double *B, double *C,
+   const int x, const int y, const int z,
+   const int X, const int Y, const int Z) {
+   int i, j, k;
 
-        }
+   __m512d a[KERNEL_SIZE * KERNEL_SIZE];
+//double KA[KERNEL_SIZE * KERNEL_SIZE];
+__m512d b;
+__m512d c[KERNEL_SIZE];
+double tmp[KERNEL_SIZE];
+for (i = 0; i < KERNEL_SIZE; i ++) c[i] = _mm512_setzero_pd();
 
-        for (i = 0; i < 8 && x+i<X; i++) {
-            c[i] = _mm512_fmadd_pd(a[i*KERNEL_SIZE+k], b, c[i]);
-            //__m512d a = _mm512_set1_pd(KA[i*KERNEL_SIZE+k]);
-            //c[i] = _mm512_fmadd_pd(a, b, c[i]);
-        }
-    }
+for (i = 0; i < KERNEL_SIZE && x+i < X; i++) {
+//int len = z+KERNEL_SIZE < Z? KERNEL_SIZE : Z-z;
+//memcpy(KA+i*KERNEL_SIZE, A+(x+i)*M+z, len*sizeof(double));
+for (k = 0; k < KERNEL_SIZE && z+k < Z; k ++)
+a[i*KERNEL_SIZE+k] = _mm512_set1_pd(A[(x+i)*M+z+k]);
+}
 
-    for (i = 0; i < KERNEL_SIZE && x+i<X; i ++) {
-        _mm512_storeu_pd(tmp, c[i]);
-        for (j = 0; j < 8; j ++) 
-            if (y+j < Y) C[(x+i)*M + y+j] += tmp[j];
-    }
+int len = y+KERNEL_SIZE < Y? KERNEL_SIZE : Y-y;
+memset(tmp, 0, sizeof(tmp));
+for (k = 0; k < KERNEL_SIZE && z+k < Z; k++) {
+int base = (z+k)*M+y;
+if (len == 8) {
+b = _mm512_loadu_pd(B + base);
+} else {
+memcpy(tmp, B+base, len*sizeof(double));
+b = _mm512_loadu_pd(tmp);
+//b = _mm512_set_pd(0, tmp[6], tmp[5], tmp[4], 
+//        tmp[3], tmp[2], tmp[1], tmp[0]);
+
+}
+
+for (i = 0; i < 8 && x+i<X; i++) {
+c[i] = _mm512_fmadd_pd(a[i*KERNEL_SIZE+k], b, c[i]);
+//__m512d a = _mm512_set1_pd(KA[i*KERNEL_SIZE+k]);
+//c[i] = _mm512_fmadd_pd(a, b, c[i]);
+}
+}
+
+for (i = 0; i < KERNEL_SIZE && x+i<X; i ++) {
+_mm512_storeu_pd(tmp, c[i]);
+for (j = 0; j < 8; j ++) 
+if (y+j < Y) C[(x+i)*M + y+j] += tmp[j];
+}
 }
 */
 
@@ -358,7 +382,7 @@ void basic_matmul(const int M, const double * restrict A, const double * restric
                 C[x*M+y] += A[x*M+z] * B[z*M+y];
 }
 
-void square_dgemm(const int M, 
+void square_dgemm_call_avx(const int M, 
         const double * restrict A, 
         const double * restrict B, 
         double * restrict C)
@@ -381,11 +405,59 @@ void square_dgemm(const int M,
                             //basic_matmul(M, B+(bi+x)*M+bk+z, A+(bk+z)*M+bj+y, C+(bi+x)*M+bj+y, KX, KY, KZ);
                             kernel_matmul_avx512(M, B+(bi+x)*M+bk+z, A+(bk+z)*M+bj+y, C+(bi+x)*M+bj+y, KX, KY, KZ);
                             /*
-                            for (xx = 0; xx < KX; xx++) 
-                                for (yy = 0; yy < KY; yy++) 
-                                    for (zz = 0; zz < KZ; zz++)
-                                        C[(bi+x+xx)*M+y+yy+bj] += B[(bi+xx+x)*M+z+zz+bk] * A[(bk+zz+z)*M+y+yy+bj];
-                            */
+                               for (xx = 0; xx < KX; xx++) 
+                               for (yy = 0; yy < KY; yy++) 
+                               for (zz = 0; zz < KZ; zz++)
+                               C[(bi+x+xx)*M+y+yy+bj] += B[(bi+xx+x)*M+z+zz+bk] * A[(bk+zz+z)*M+y+yy+bj];
+                               */
+
+
+                        }
+
+            }
+}
+
+void square_dgemm(const int M, 
+        const double * restrict A, 
+        const double * restrict B, 
+        double * restrict C)
+{
+    int bi, bj, bk, i, j, k;
+    int x, y, z, xx, yy, zz;
+    double tmp[KERNEL_SIZE];
+    __m512d a[KERNEL_SIZE];
+    for (bi = 0; bi < M; bi += BLOCK_SIZE)
+        for (bj = 0; bj < M; bj += BLOCK_SIZE)
+            for (bk = 0; bk < M; bk += BLOCK_SIZE) { 
+                int X = (bi+BLOCK_SIZE > M ? M-bi : BLOCK_SIZE);
+                int Y = (bj+BLOCK_SIZE > M ? M-bj : BLOCK_SIZE);
+                int Z = (bk+BLOCK_SIZE > M ? M-bk : BLOCK_SIZE);
+                //block_matmul(M, B+bi*M+bk, A+bk*M+bj, C+bi*M+bj, X, Y, Z);
+                for (x = 0; x < X; x += KERNEL_SIZE)
+                    for (y = 0; y < Y; y += KERNEL_SIZE)
+                        for (z = 0; z < Z; z += KERNEL_SIZE) {
+                            int KX = (x+KERNEL_SIZE) > X ? X-x : KERNEL_SIZE;
+                            int KY = (y+KERNEL_SIZE) > Y ? Y-y : KERNEL_SIZE;
+                            int KZ = (z+KERNEL_SIZE) > Z ? Z-z : KERNEL_SIZE;
+                            //basic_matmul(M, B+(bi+x)*M+bk+z, A+(bk+z)*M+bj+y, C+(bi+x)*M+bj+y, KX, KY, KZ);
+                            //kernel_matmul_avx512(M, B+(bi+x)*M+bk+z, A+(bk+z)*M+bj+y, C+(bi+x)*M+bj+y, KX, KY, KZ);
+
+                            int base_a = (bk+z)*M+bj+y;
+                            int base_b = (bi+x)*M+bk+z;
+                            int base_c = (bi+x)*M+bj+y;
+
+                            for (k = 0; k < KZ; k++)
+                                a[k] = _mm512_load_pd(A+base_a+k*M);
+
+                            for (i = 0; i < KX; i++) {
+                                __m512d c = _mm512_setzero_pd();
+                                for (k = 0; k < KZ; k++)
+                                    c = _mm512_fmadd_pd(_mm512_set1_pd(B[base_b+i*M+k]), a[k], c);
+                                _mm512_store_pd(tmp, c);
+                                for (j = 0; j < KY; j ++) 
+                                    C[base_c+i*M+j] += tmp[j];
+                            }
+
                         }
 
             }
