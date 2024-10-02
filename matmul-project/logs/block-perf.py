@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Read the log fileb
-log_file = "03-block.log"
+log_file = "05-unroll.log"
 with open(log_file, "r") as file:
     lines = file.readlines()
 
@@ -29,6 +29,7 @@ variances = []
 
 for bs, values in data.items():
     bs_values.append(bs)
+    values = np.divide(values, 1000)
     avg = np.mean(values)
     var = np.var(values)
     averages.append(avg)
@@ -40,4 +41,4 @@ plt.xlabel("BS (Block Size)")
 plt.ylabel("Average GFlop/s")
 plt.title("Average GFlop/s vs Block Size with Error Bars")
 plt.grid(True)
-plt.savefig('03-block.jpg', dpi=300)
+plt.savefig('05-unroll.jpg', dpi=300)
