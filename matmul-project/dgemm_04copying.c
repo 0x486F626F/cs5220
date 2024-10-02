@@ -6,7 +6,7 @@ const char* dgemm_desc = "My awesome dgemm 512.";
 #include <stdbool.h>
 
 #ifndef BLOCK_SIZE
-#define BLOCK_SIZE 32
+#define BLOCK_SIZE 80
 #endif
 
 #define KERNEL_SIZE 8

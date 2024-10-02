@@ -1,5 +1,5 @@
 prog=05unroll
-log=logs/05-unroll.log
+log=logs/05-unroll-detail.log
 #rm -r $log
 run() {
     make clean
@@ -9,11 +9,11 @@ run() {
     do
         ./matmul-$1
         python3 calculate_avg.py timing-$1.csv >> $log
-        cp timing-$1.csv logs/05/timing-$1-2-$2-$i.csv
+        cp timing-$1.csv logs/05/timing-$1-2-2-$2-$i.csv
     done
 }
 
-for bs in {32..512..32}
+for bs in {32..128..16}
 do
     run $prog $bs
 done

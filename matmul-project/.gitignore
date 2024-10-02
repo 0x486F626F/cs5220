@@ -11,5 +11,4 @@ matmul-03block
 matmul-04copying
 matmul-05unroll
 *.txt
-*.csv
 *.pdf

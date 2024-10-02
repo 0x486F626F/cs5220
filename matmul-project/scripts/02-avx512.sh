@@ -12,7 +12,8 @@ run() {
     done
 }
 
-run $prog 2
-run $prog 4
-run $prog 8
-run $prog 16
+run $prog 1
+#run $prog 2
+#run $prog 4
+#run $prog 8
+#run $prog 16

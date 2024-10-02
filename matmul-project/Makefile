@@ -33,8 +33,6 @@ ifdef UNROLL2
 	CFLAGS += -DUNROLL2
 endif
 
-
-
 .PHONY:	all
 all:	$(DRIVERS)
 
@@ -63,7 +61,7 @@ matmul.o: matmul.c
 	$(CC) -c $(CFLAGS) $(CPPFLAGS) $<
 
 %.o: %.c
-	$(CC) -c $(CFLAGS) $(OPTFLAGS) $(CPPFLAGS) -march=native -ftree-vectorize -ffast-math -mavx -mavx512f -mavx512dq -mfma $<
+	$(CC) -c $(CFLAGS) $(OPTFLAGS) $(CPPFLAGS) -march=native -ftree-vectorize -fp-model fast -mavx -mavx512f -mavx512dq -mfma $<
 
 %.o: %.f
 	$(FC) -c $(FFLAGS) $(OPTFLAGS) $<

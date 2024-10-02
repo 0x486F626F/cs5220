@@ -10,9 +10,9 @@ run() {
     done
 }
 
-run IJK
-run IKJ
-run KIJ
+#run IJK
+#run IKJ
+#run KIJ
 
 run JIK
 run JKI

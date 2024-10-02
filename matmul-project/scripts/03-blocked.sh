@@ -13,7 +13,7 @@ run() {
     done
 }
 
-for bs in {32..512..32}
+for bs in {16..128..16}
 do
     run $prog $bs
 done
