@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Read the log fileb
-log_file = "05-unroll.log"
+log_file = "03-block.log"
 with open(log_file, "r") as file:
     lines = file.readlines()
 
@@ -37,8 +37,8 @@ for bs, values in data.items():
 
 # Plotting
 plt.errorbar(bs_values, averages, yerr=np.sqrt(variances), fmt='-o', capsize=5)
-plt.xlabel("BS (Block Size)")
+plt.xlabel("Block Size")
 plt.ylabel("Average GFlop/s")
 plt.title("Average GFlop/s vs Block Size with Error Bars")
 plt.grid(True)
-plt.savefig('05-unroll.jpg', dpi=300)
+plt.savefig('03-block.jpg', dpi=300)
