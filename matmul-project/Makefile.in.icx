@@ -1,5 +1,5 @@
 # Versions to build
-BUILDS=mine basic blocked mkl
+BUILDS=01basic 02AVX512 03block 04copying 05unroll mine basic blocked mkl
 
 # C compilers
 CC=icx

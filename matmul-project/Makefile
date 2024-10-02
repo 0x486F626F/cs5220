@@ -5,11 +5,33 @@
 # to play with, you can put them in an appropriately-named Makefile.in.
 # For example, the default setup has a Makefile.in.icc and Makefile.in.gcc.
 
-PLATFORM=gcc
+PLATFORM=icx
 
 include Makefile.in.$(PLATFORM)
 DRIVERS=$(addprefix matmul-,$(BUILDS))
 TIMINGS=$(addsuffix .csv,$(addprefix timing-,$(BUILDS)))
+
+ifdef BLOCK_SIZE
+	CFLAGS += -DBLOCK_SIZE=$(BLOCK_SIZE)
+endif
+ifdef KERNEL_FACTOR
+	CFLAGS += -DKERNEL_FACTOR=$(KERNEL_FACTOR)
+endif
+ifdef IJK
+	CFLAGS += -DIJK
+endif
+ifdef IKJ
+	CFLAGS += -DIKJ
+endif
+ifdef KIJ
+	CFLAGS += -DKIJ
+endif
+ifdef CP_BLOCK
+	CFLAGS += -DCP_BLOCK
+endif
+ifdef UNROLL2
+	CFLAGS += -DUNROLL2
+endif
 
 .PHONY:	all
 all:	$(DRIVERS)
@@ -39,7 +61,7 @@ matmul.o: matmul.c
 	$(CC) -c $(CFLAGS) $(CPPFLAGS) $<
 
 %.o: %.c
-	$(CC) -c $(CFLAGS) $(OPTFLAGS) $(CPPFLAGS) $<
+	$(CC) -c $(CFLAGS) $(OPTFLAGS) $(CPPFLAGS) -march=native -ftree-vectorize -fp-model fast -mavx -mavx512f -mavx512dq -mfma $<
 
 %.o: %.f
 	$(FC) -c $(FFLAGS) $(OPTFLAGS) $<
@@ -60,7 +82,7 @@ dgemm_veclib.o: dgemm_blas.c
 run:    $(TIMINGS)
 
 timing-%.csv: matmul-%
-	OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 ./matmul-$*
+	OPENMP_NUM_THREADS=1 ./matmul-$*
 
 # ---
 #  Rules for plotting
