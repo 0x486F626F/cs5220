@@ -30,18 +30,14 @@ unsigned particle_bucket(particle_t* p, float h)
     return zm_encode(ix & HASH_MASK, iy & HASH_MASK, iz & HASH_MASK);
 }
 
-#include <assert.h>
 unsigned particle_neighborhood(unsigned* buckets, particle_t* p, float h)
 {
     /* BEGIN TASK */
-    //buckets = (unsigned*)calloc(MAX_NBR_BINS, sizeof(unsigned));
     int ix = p->x[0]/h;
     int iy = p->x[1]/h;
     int iz = p->x[2]/h;
-    for (int i = 0; i < 3; i ++)
-    assert(p->x[i] >= 0 || p->x[i] <= 1);
 
-    int max_bucket_per_dim = ceil(1.0/h);
+    int max_bucket_per_dim = 1.0/h;
     
     int last_index = 0;
     for (int dx = -1; dx <= 1; dx++) {
@@ -58,7 +54,6 @@ unsigned particle_neighborhood(unsigned* buckets, particle_t* p, float h)
                             unsigned(ny_bin) & HASH_MASK, unsigned(nz_bin) & HASH_MASK);
                     buckets[last_index] = bucket;
                     last_index++; 
-                    assert(last_index <= MAX_NBR_BINS);
                 }
             } 
         }
@@ -67,7 +62,6 @@ unsigned particle_neighborhood(unsigned* buckets, particle_t* p, float h)
     /* END TASK */
 }
 
-#include <stdio.h>
 void hash_particles(sim_state_t* s, float h)
 {
     /* BEGIN TASK */
@@ -81,15 +75,6 @@ void hash_particles(sim_state_t* s, float h)
         int b = int(particle_bucket(pi, h));
         pi->next = hash[b];
         hash[b] = pi;
-
-        /*
-        if (b == 0) {
-            int cnt = 0;
-            for (particle_t *p = hash[b]; p; p = p->next) 
-                cnt ++;
-            printf("b len %d\n", cnt);
-        }
-        */
     }
     /* END TASK */
 }
