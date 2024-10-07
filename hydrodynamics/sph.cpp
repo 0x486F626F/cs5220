@@ -13,6 +13,7 @@
 #include "binhash.hpp"
 #include "interact.hpp"
 #include "leapfrog.hpp"
+#include "stats.hpp"
 
 /*@q
  * ====================================================================
@@ -155,20 +156,39 @@ int main(int argc, char** argv)
     int n       = state->n;
 
     double t_start = omp_get_wtime();
+    stats& stat = stats::get_stats();
     //write_header(fp, n);
     write_header(fp, n, nframes, params.h);
     write_frame_data(fp, n, state, NULL);
+
+    double t0 = omp_get_wtime();
     compute_accel(state, &params);
+    double t1 = omp_get_wtime();
     leapfrog_start(state, dt);
+    double t2 = omp_get_wtime();
     check_state(state);
+    double t3 = omp_get_wtime();
+    stat.accu_time(0, 0, t1-t0);
+    stat.accu_time(1, 0, t2-t1);
+    stat.accu_time(2, 0, t3-t2);
     for (int frame = 1; frame < nframes; ++frame) {
         for (int i = 0; i < npframe; ++i) {
+            t0 = omp_get_wtime();
             compute_accel(state, &params);
+            t1 = omp_get_wtime();
             leapfrog_step(state, dt);
+            t2 = omp_get_wtime();
             check_state(state);
+            t3 = omp_get_wtime();
+            stat.accu_time(0, 0, t1-t0);
+            stat.accu_time(1, 0, t2-t1);
+            stat.accu_time(2, 0, t3-t2);
+        }
+        if (frame % 10 == 0) {
+            stat.print("profile.txt");
         }
         printf("Frame: %d of %d - %2.1f%%\n",frame, nframes, 
-               100*(float)frame/nframes);
+                100*(float)frame/nframes);
         write_frame_data(fp, n, state, NULL);
     }
     double t_end = omp_get_wtime();

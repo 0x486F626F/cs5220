@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <assert.h>
+#include <omp.h>
 
 #include "vec3.hpp"
 #include "zmorton.hpp"
@@ -11,6 +12,8 @@
 #include "state.hpp"
 #include "interact.hpp"
 #include "binhash.hpp"
+
+#include "stats.hpp"
 
 /* Define this to use the bucketing version of the code */
 /* #define USE_BUCKETING */
@@ -127,18 +130,22 @@ void compute_accel(sim_state_t* state, sim_param_t* params)
     const float g    = params->g;
     const float mass = state->mass;
     const float h2   = h*h;
+    stats& stat = stats::get_stats();
 
     // Unpack system state
     particle_t* p = state->part;
     particle_t** hash = state->hash;
     int n = state->n;
 
+    double t0 = omp_get_wtime();
     // Rehash the particles
     hash_particles(state, h);
 
+    double t1 = omp_get_wtime();
     // Compute density and color
     compute_density(state, params);
 
+    double t2 = omp_get_wtime();
     // Start with gravity and surface forces
     for (int i = 0; i < n; ++i)
         vec3_set(p[i].a,  0, -g, 0);
@@ -161,5 +168,9 @@ void compute_accel(sim_state_t* state, sim_param_t* params)
         }
     }
 #endif
+    double t3 = omp_get_wtime();
+    stat.accu_time(0, 1, t1-t0);
+    stat.accu_time(0, 2, t2-t1);
+    stat.accu_time(0, 3, t3-t2);
 }
 

@@ -1,4 +1,4 @@
-PLATFORM=mac
+PLATFORM=linux
 include Makefile.in.$(PLATFORM)
 
 .PHONY: all exe doc clean realclean
@@ -9,7 +9,7 @@ all: exe doc
 
 # =======
 
-sph.x: sph.o params.o state.o binhash.o interact.o leapfrog.o io_txt.o 
+sph.x: sph.o params.o state.o binhash.o interact.o leapfrog.o io_txt.o stats.o 
 	$(CPP) $(CPPFLAGS) $^ -o $@ $(LIBS)
 
 sph.o: sph.cpp params.hpp state.hpp binhash.hpp interact.hpp leapfrog.hpp io.hpp 
