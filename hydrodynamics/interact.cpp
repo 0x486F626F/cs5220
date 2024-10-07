@@ -38,6 +38,8 @@ void update_density(particle_t* pi, particle_t* pj, float h2, float C)
     float r2 = vec3_dist2(pi->x, pj->x);
     float z  = h2-r2;
     if (z > 0) {
+        stats& s = stats::get_stats();
+        s.accu_time(0, 5, 1);
         float rho_ij = C*z*z*z;
         pi->rho += rho_ij;
         pj->rho += rho_ij;
@@ -67,13 +69,10 @@ void compute_density(sim_state_t* s, sim_param_t* params)
     for (int i = 0; i < n; i++) {
         particle_t* pi = p+i;
         pi->rho += ( 315.0/64.0/M_PI ) * s->mass / h3;
-        unsigned num_nbr = particle_neighborhood(buckets, pi, h);
-        for (int j = 0; j < num_nbr; j++) {
-            for (particle_t *pj = hash[buckets[j]]; pj; pj = pj->next) {
-                if (pi < pj)
-                    update_density(pi, pj, h2, C);
-                else break;
-            }
+        unsigned nbr = particle_neighborhood(buckets, pi, h);
+        for (unsigned j = 0; j < nbr; j++) {
+            for (particle_t *pj = hash[buckets[j]]; pi < pj; pj = pj->next)
+                update_density(pi, pj, h2, C);
         }
     }
     /* END TASK */
@@ -113,6 +112,8 @@ void update_forces(particle_t* pi, particle_t* pj, float h2,
     vec3_diff(dx, pi->x, pj->x);
     float r2 = vec3_len2(dx);
     if (r2 < h2) {
+        stats& s = stats::get_stats();
+        s.accu_time(0, 4, 1);
         const float rhoi = pi->rho;
         const float rhoj = pj->rho;
         float q = sqrt(r2/h2);
@@ -174,13 +175,10 @@ void compute_accel(sim_state_t* state, sim_param_t* params)
     unsigned buckets[MAX_NBR_BINS];
     for (int i = 0; i < n; i++) {
         particle_t* pi = p+i;
-        unsigned num_nbr = particle_neighborhood(buckets, pi, h);
-        for (int j = 0; j < num_nbr; j++) {
-            for (particle_t *pj = hash[buckets[j]]; pj; pj = pj->next) {
-                if (pi < pj)
-                    update_forces(pi, pj, h2, rho0, C0, Cp, Cv);
-                else break;
-            }
+        unsigned nbr = particle_neighborhood(buckets, pi, h);
+        for (unsigned j = 0; j < nbr; j++) {
+            for (particle_t *pj = hash[buckets[j]]; pi < pj; pj = pj->next) 
+                update_forces(pi, pj, h2, rho0, C0, Cp, Cv);
         }
     }
     /* END TASK */

@@ -37,28 +37,14 @@ unsigned particle_neighborhood(unsigned* buckets, particle_t* p, float h)
     int iy = p->x[1]/h;
     int iz = p->x[2]/h;
 
-    int max_bucket_per_dim = 1.0/h;
-    
-    int last_index = 0;
-    for (int dx = -1; dx <= 1; dx++) {
-        for (int dy = -1; dy <= 1; dy++) {
-            for (int dz = -1; dz <= 1; dz++) {
-                int nx_bin = ix + dx;
-                int ny_bin = iy + dy;
-                int nz_bin = iz + dz;
-
-                if (nx_bin >= 0 && nx_bin <= max_bucket_per_dim &&
-                    ny_bin >= 0 && ny_bin <= max_bucket_per_dim &&
-                    nz_bin >= 0 && nz_bin <= max_bucket_per_dim) {
-                    unsigned bucket = zm_encode(unsigned(nx_bin) & HASH_MASK, 
-                            unsigned(ny_bin) & HASH_MASK, unsigned(nz_bin) & HASH_MASK);
-                    buckets[last_index] = bucket;
-                    last_index++; 
-                }
-            } 
-        }
-    }
-    return unsigned(last_index);
+    int ndim = 1.0/h;
+    unsigned len = 0;
+    for (int x = ix-1; x <= ix+1; x++) if (x >= 0 && x <= ndim)
+        for (int y = iy-1; y <= iy+1; y++) if (y >= 0 && y <= ndim)
+            for (int z = iz-1; z <= iz+1; z++) if (z >= 0 && z <= ndim)
+                buckets[len ++] = zm_encode(unsigned(x) & HASH_MASK,
+                        unsigned(y) & HASH_MASK, unsigned(z) & HASH_MASK);
+    return len;
     /* END TASK */
 }
 

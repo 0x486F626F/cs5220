@@ -1,6 +1,6 @@
 # -- Compile settings for the cluster
 CPP       = g++ #CC
-CPPFLAGS  = -std=c++11 -Wall -g -fopenmp
+CPPFLAGS  = -std=c++11 -Wall -O3 -fopenmp
 CPPFLAGS += -DUSE_BUCKETING
 OPTFLAGS = -O3
 LIBS     = -lm
