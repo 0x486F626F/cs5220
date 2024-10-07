@@ -1,6 +1,4 @@
 #include <string.h>
-#include <math.h>
-#include <stdlib.h>
 
 #include "zmorton.hpp"
 #include "binhash.hpp"
@@ -58,7 +56,7 @@ void hash_particles(sim_state_t* s, float h)
 
     for (int i = 0; i < n; i++) {
         particle_t* pi = p+i;
-        int b = int(particle_bucket(pi, h));
+        unsigned b = particle_bucket(pi, h);
         pi->next = hash[b];
         hash[b] = pi;
     }
