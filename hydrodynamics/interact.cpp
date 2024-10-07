@@ -139,7 +139,11 @@ void compute_accel(sim_state_t* state, sim_param_t* params)
 
     double t0 = omp_get_wtime();
     // Rehash the particles
-    hash_particles(state, h);
+    //int cnt = 0;
+    //for (auto p = hash[0]; p; p = p->next) 
+    //    cnt ++;
+    //printf("hash 0 len %d\n", cnt);
+    //hash_particles(state, h);
 
     double t1 = omp_get_wtime();
     // Compute density and color
@@ -158,6 +162,22 @@ void compute_accel(sim_state_t* state, sim_param_t* params)
     // Accumulate forces
 #ifdef USE_BUCKETING
     /* BEGIN TASK */
+    unsigned buckets[MAX_NBR_BINS];
+    for (int i = 0; i < n; i++) {
+        particle_t* pi = p+i;
+        //unsigned* buckets = calloc(MAX_NBR_BINS, sizeof(unsigned));
+        unsigned num_nbr = particle_neighborhood(buckets, pi, h);
+        //printf("%d\n", num_nbr);
+        for (int j = 0; j < num_nbr; j++) {
+            //int cnt = 0;
+            //printf("%d\n", buckets[j]);
+            for (particle_t *cur = hash[buckets[j]]; cur != NULL; cur = cur->next) {
+                //cnt ++;
+                update_forces(pi, cur, h2, rho0, C0, Cp, Cv);
+                //printf("%x\n", cur);
+            }
+        }
+    }
     /* END TASK */
 #else
     for (int i = 0; i < n; ++i) {
