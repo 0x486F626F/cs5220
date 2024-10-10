@@ -74,7 +74,7 @@ void compute_density(sim_state_t* s, sim_param_t* params)
     // Accumulate density info
 #ifdef USE_BUCKETING
     /* BEGIN TASK */
-#pragma omp parallel for schedule(dynamic)
+#pragma omp parallel for 
     for (int i = 0; i < n; i++) {
         particle_t* pi = p+i;
         pi->rho = ( 315.0/64.0/M_PI ) * s->mass / h3;
@@ -207,7 +207,7 @@ void compute_accel(sim_state_t* state, sim_param_t* params)
     // Accumulate forces
 #ifdef USE_BUCKETING
     /* BEGIN TASK */
-#pragma omp parallel for schedule(dynamic)
+#pragma omp parallel for 
     for (int i = 0; i < n; i++) {
         particle_t* pi = p+i;
         unsigned buckets[MAX_NBR_BINS];
