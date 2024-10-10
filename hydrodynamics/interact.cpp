@@ -141,6 +141,36 @@ void update_forces(particle_t* pi, particle_t* pj, float h2,
     }
 }
 
+inline
+void update_forces_i(particle_t* pi, particle_t* pj, float h2,
+                   float rho0, float C0, float Cp, float Cv)
+{
+    float dx[3];
+    vec3_diff(dx, pi->x, pj->x);
+    float r2 = vec3_len2(dx);
+    if (r2 < h2) {
+        stats& s = stats::get_stats();
+        s.accu_time(0, 4, 1);
+        const float rhoi = pi->rho;
+        const float rhoj = pj->rho;
+        float q = sqrt(r2/h2);
+        float u = 1-q;
+        float w0 = C0 * u/rhoi/rhoj;
+        float wp = w0 * Cp * (rhoi+rhoj-2*rho0) * u/q;
+        float wv = w0 * Cv;
+        float dv[3];
+        vec3_diff(dv, pi->v, pj->v);
+
+        // Equal and opposite pressure forces
+        vec3_saxpy(pi->a,  wp, dx);
+        
+        // Equal and opposite viscosity forces
+        vec3_saxpy(pi->a,  wv, dv);
+    }
+}
+
+
+
 void compute_accel(sim_state_t* state, sim_param_t* params)
 {
     // Unpack basic parameters
@@ -221,6 +251,7 @@ void compute_accel(sim_state_t* state, sim_param_t* params)
     // Accumulate forces
 #ifdef USE_BUCKETING
     /* BEGIN TASK */
+#pragma omp parallel for schedule(dynamic)
     for (int i = 0; i < n; i++) {
         particle_t* pi = p+i;
         double t2 = omp_get_wtime();
@@ -228,8 +259,9 @@ void compute_accel(sim_state_t* state, sim_param_t* params)
         unsigned nbr = particle_neighborhood(buckets, pi, h);
         double t3 = omp_get_wtime();
         for (unsigned j = 0; j < nbr; j++) {
-            for (particle_t *pj = hash[buckets[j]]; pi < pj; pj = pj->next) 
-                update_forces(pi, pj, h2, rho0, C0, Cp, Cv);
+            for (particle_t *pj = hash[buckets[j]]; pj; pj = pj->next) 
+                if (pi != pj)
+                    update_forces(pi, pj, h2, rho0, C0, Cp, Cv);
         }
         double t4 = omp_get_wtime();
         stat.accu_time(0, 2, t3-t2);
