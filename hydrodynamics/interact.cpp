@@ -82,12 +82,7 @@ void compute_density(sim_state_t* s, sim_param_t* params)
         unsigned nbr = particle_neighborhood(buckets, pi, h);
         for (unsigned j = 0; j < nbr; j++) {
             for (particle_t *pj = hash[buckets[j]]; pj; pj = pj->next)
-                if(pi != pj) {
-                    //update_density_i(pi, pj, h2, C);
-                    float r2 = vec3_dist2(pi->x, pj->x);
-                    float z = h2 - r2;
-                    if (z > 0) pi->rho += C*z*z*z;
-                }
+                if(pi != pj) update_density_i(pi, pj, h2, C);
         }
     }
     /* END TASK */
