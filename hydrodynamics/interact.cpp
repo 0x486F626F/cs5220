@@ -38,11 +38,20 @@ void update_density(particle_t* pi, particle_t* pj, float h2, float C)
     float r2 = vec3_dist2(pi->x, pj->x);
     float z  = h2-r2;
     if (z > 0) {
-        stats& s = stats::get_stats();
-        s.accu_time(0, 5, 1);
         float rho_ij = C*z*z*z;
         pi->rho += rho_ij;
         pj->rho += rho_ij;
+    }
+}
+
+inline
+void update_density_i(particle_t* pi, particle_t* pj, float h2, float C)
+{
+    float r2 = vec3_dist2(pi->x, pj->x);
+    float z  = h2-r2;
+    if (z > 0) {
+        float rho_ij = C*z*z*z;
+        pi->rho += rho_ij;
     }
 }
 
@@ -59,35 +68,34 @@ void compute_density(sim_state_t* s, sim_param_t* params)
     float C  = ( 315.0/64.0/M_PI ) * s->mass / h9;
 
     // Clear densities
-    for (int i = 0; i < n; ++i)
-        p[i].rho = 0;
+    //for (int i = 0; i < n; ++i)
+    //    p[i].rho = 0;
 
     // Accumulate density info
 #ifdef USE_BUCKETING
     /* BEGIN TASK */
-    unsigned buckets[MAX_NBR_BINS];
-    stats& stat = stats::get_stats();
+#pragma omp parallel for schedule(dynamic)
     for (int i = 0; i < n; i++) {
         particle_t* pi = p+i;
-        pi->rho += ( 315.0/64.0/M_PI ) * s->mass / h3;
-        double t2 = omp_get_wtime();
+        pi->rho = ( 315.0/64.0/M_PI ) * s->mass / h3;
+        unsigned buckets[MAX_NBR_BINS];
         unsigned nbr = particle_neighborhood(buckets, pi, h);
-        double t3 = omp_get_wtime();
         for (unsigned j = 0; j < nbr; j++) {
-            for (particle_t *pj = hash[buckets[j]]; pi < pj; pj = pj->next)
-                update_density(pi, pj, h2, C);
+            for (particle_t *pj = hash[buckets[j]]; pj; pj = pj->next)
+                if(pi != pj) {
+                    //update_density_i(pi, pj, h2, C);
+                    float r2 = vec3_dist2(pi->x, pj->x);
+                    float z = h2 - r2;
+                    if (z > 0) pi->rho += C*z*z*z;
+                }
         }
-        double t4 = omp_get_wtime();
-        stat.accu_time(0, 2, t3-t2);
-        stat.accu_time(0, 3, t4-t3);
     }
     /* END TASK */
 #else
     for (int i = 0; i < n; ++i) {
         particle_t* pi = s->part+i;
         pi->rho += ( 315.0/64.0/M_PI ) * s->mass / h3;
-        //for (int j = i+1; j < n; ++j) {
-        for (int j = n-1; j >= i+1; --j) {
+        for (int j = i+1; j < n; ++j) {
             particle_t* pj = s->part+j;
             update_density(pi, pj, h2, C);
         }
@@ -119,8 +127,6 @@ void update_forces(particle_t* pi, particle_t* pj, float h2,
     vec3_diff(dx, pi->x, pj->x);
     float r2 = vec3_len2(dx);
     if (r2 < h2) {
-        stats& s = stats::get_stats();
-        s.accu_time(0, 4, 1);
         const float rhoi = pi->rho;
         const float rhoj = pj->rho;
         float q = sqrt(r2/h2);
@@ -149,8 +155,6 @@ void update_forces_i(particle_t* pi, particle_t* pj, float h2,
     vec3_diff(dx, pi->x, pj->x);
     float r2 = vec3_len2(dx);
     if (r2 < h2) {
-        stats& s = stats::get_stats();
-        s.accu_time(0, 4, 1);
         const float rhoi = pi->rho;
         const float rhoj = pj->rho;
         float q = sqrt(r2/h2);
@@ -169,8 +173,6 @@ void update_forces_i(particle_t* pi, particle_t* pj, float h2,
     }
 }
 
-
-
 void compute_accel(sim_state_t* state, sim_param_t* params)
 {
     // Unpack basic parameters
@@ -181,28 +183,17 @@ void compute_accel(sim_state_t* state, sim_param_t* params)
     const float g    = params->g;
     const float mass = state->mass;
     const float h2   = h*h;
-    const float h3 = h2*h;
-    const float h9 = h3*h3*h3;
-    const float C  = ( 315.0/64.0/M_PI ) * state->mass / h9;
-
-    stats& stat = stats::get_stats();
 
     // Unpack system state
     particle_t* p = state->part;
     particle_t** hash = state->hash;
     int n = state->n;
 
-    double t0 = omp_get_wtime();
     // Rehash the particles
     hash_particles(state, h);
-    double t1 = omp_get_wtime();
 
     // Compute density and color
-    //compute_density(state, params);
-    //
-    // Clear densities
-    for (int i = 0; i < n; ++i)
-        p[i].rho = 0;
+    compute_density(state, params);
 
     // Start with gravity and surface forces
     for (int i = 0; i < n; ++i)
@@ -213,71 +204,28 @@ void compute_accel(sim_state_t* state, sim_param_t* params)
     float Cp = k/2;
     float Cv = -mu;
 
-#ifdef USE_BUCKETING
-    /* BEGIN TASK */
-    
-#pragma omp parallel for schedule(dynamic)
-    for (int i = 0; i < n; i++) {
-        particle_t* pi = p+i;
-        pi->rho += ( 315.0/64.0/M_PI ) * state->mass / h3;
-        double t2 = omp_get_wtime();
-        unsigned buckets[MAX_NBR_BINS];
-        unsigned nbr = particle_neighborhood(buckets, pi, h);
-        double t3 = omp_get_wtime();
-        for (unsigned j = 0; j < nbr; j++) 
-            for (particle_t *pj = hash[buckets[j]]; pj; pj = pj->next) 
-                if (pi != pj) {
-                    float r2 = vec3_dist2(pi->x, pj->x);
-                    float z = h2 - r2;
-                    if (z > 0) pi->rho += C*z*z*z;
-                }
-        double t4 = omp_get_wtime();
-        stat.accu_time(0, 2, t3-t2);
-        stat.accu_time(0, 3, t4-t3);
-    }
-
-    /* END TASK */
-#else
-    for (int i = 0; i < n; ++i) {
-        particle_t* pi = state->part+i;
-        pi->rho += ( 315.0/64.0/M_PI ) * state->mass / h3;
-        for (int j = i+1; j < n; ++j) {
-            particle_t* pj = state->part+j;
-            update_density(pi, pj, h2, C);
-        }
-    }
-#endif
-
     // Accumulate forces
 #ifdef USE_BUCKETING
     /* BEGIN TASK */
 #pragma omp parallel for schedule(dynamic)
     for (int i = 0; i < n; i++) {
         particle_t* pi = p+i;
-        double t2 = omp_get_wtime();
         unsigned buckets[MAX_NBR_BINS];
         unsigned nbr = particle_neighborhood(buckets, pi, h);
-        double t3 = omp_get_wtime();
         for (unsigned j = 0; j < nbr; j++) {
             for (particle_t *pj = hash[buckets[j]]; pj; pj = pj->next) 
                 if (pi != pj)
-                    update_forces(pi, pj, h2, rho0, C0, Cp, Cv);
+                    update_forces_i(pi, pj, h2, rho0, C0, Cp, Cv);
         }
-        double t4 = omp_get_wtime();
-        stat.accu_time(0, 2, t3-t2);
-        stat.accu_time(0, 3, t4-t3);
     }
     /* END TASK */
 #else
     for (int i = 0; i < n; ++i) {
         particle_t* pi = p+i;
         for (int j = i+1; j < n; ++j) {
-        //for (int j = n-1; j >= i+1; --j) {
             particle_t* pj = p+j;
             update_forces(pi, pj, h2, rho0, C0, Cp, Cv);
         }
     }
 #endif
-    stat.accu_time(0, 1, t1-t0);
 }
-
