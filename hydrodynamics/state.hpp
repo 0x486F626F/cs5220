@@ -21,11 +21,18 @@ typedef struct particle_t {
     struct particle_t* next;  /* List link for spatial hashing */
 } particle_t;
 
+#ifdef VEC_BIN
+#include <vector>
+#endif
 typedef struct sim_state_t {
     int n;                /* Number of particles    */
     float mass;           /* Particle mass          */
     particle_t* part;     /* Particles              */
+#ifdef VEC_BIN
+    std::vector <std::vector <int>> buckets;
+#else
     particle_t** hash;    /* Hash table             */
+#endif
 } sim_state_t;
 
 sim_state_t* alloc_state(int n);

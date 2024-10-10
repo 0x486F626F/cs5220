@@ -2,5 +2,8 @@
 CPP       = g++ #CC
 CPPFLAGS  = -std=c++11 -Wall -O3 -fopenmp
 CPPFLAGS += -DUSE_BUCKETING
+CPPFLAGS += -DVEC_BIN 
+CPPFLAGS += -DAVX=512 -mavx2 -mfma -march=native -ffast-math
+#CPPFLAGS += -DSTATS
 OPTFLAGS = -O3
 LIBS     = -lm
