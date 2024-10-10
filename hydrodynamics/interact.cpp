@@ -185,29 +185,33 @@ void compute_accel(sim_state_t* state, sim_param_t* params)
 
 #ifdef USE_BUCKETING
     /* BEGIN TASK */
-    unsigned buckets[MAX_NBR_BINS];
-    stats& stat = stats::get_stats();
+    
+#pragma omp parallel for schedule(dynamic)
     for (int i = 0; i < n; i++) {
         particle_t* pi = p+i;
-        pi->rho += ( 315.0/64.0/M_PI ) * s->mass / h3;
+        pi->rho += ( 315.0/64.0/M_PI ) * state->mass / h3;
         double t2 = omp_get_wtime();
+        unsigned buckets[MAX_NBR_BINS];
         unsigned nbr = particle_neighborhood(buckets, pi, h);
         double t3 = omp_get_wtime();
-        for (unsigned j = 0; j < nbr; j++) {
-            for (particle_t *pj = hash[buckets[j]]; pi < pj; pj = pj->next)
-                update_density(pi, pj, h2, C);
-        }
+        for (unsigned j = 0; j < nbr; j++) 
+            for (particle_t *pj = hash[buckets[j]]; pj; pj = pj->next) 
+                if (pi != pj) {
+                    float r2 = vec3_dist2(pi->x, pj->x);
+                    float z = h2 - r2;
+                    if (z > 0) pi->rho += C*z*z*z;
+                }
         double t4 = omp_get_wtime();
         stat.accu_time(0, 2, t3-t2);
         stat.accu_time(0, 3, t4-t3);
     }
+
     /* END TASK */
 #else
     for (int i = 0; i < n; ++i) {
         particle_t* pi = state->part+i;
         pi->rho += ( 315.0/64.0/M_PI ) * state->mass / h3;
         for (int j = i+1; j < n; ++j) {
-        //for (int j = n-1; j >= i+1; --j) {
             particle_t* pj = state->part+j;
             update_density(pi, pj, h2, C);
         }
@@ -217,10 +221,10 @@ void compute_accel(sim_state_t* state, sim_param_t* params)
     // Accumulate forces
 #ifdef USE_BUCKETING
     /* BEGIN TASK */
-    unsigned buckets[MAX_NBR_BINS];
     for (int i = 0; i < n; i++) {
         particle_t* pi = p+i;
         double t2 = omp_get_wtime();
+        unsigned buckets[MAX_NBR_BINS];
         unsigned nbr = particle_neighborhood(buckets, pi, h);
         double t3 = omp_get_wtime();
         for (unsigned j = 0; j < nbr; j++) {
