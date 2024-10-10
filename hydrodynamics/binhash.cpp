@@ -42,24 +42,6 @@ unsigned particle_neighborhood(unsigned* buckets, particle_t* p, float h)
             for (int z = iz-1; z <= iz+1; z++) if (z >= 0 && z <= ndim)
                 buckets[len ++] = zm_encode(unsigned(x) & HASH_MASK,
                         unsigned(y) & HASH_MASK, unsigned(z) & HASH_MASK);
-    /*
-    int d[27][3] = {{0, 0, 0}, 
-        {0, 0, 1}, {0, 0, -1}, {0, 1, 0}, {0, -1, 0}, {1, 0, 0}, {-1, 0, 0}, 
-        {0, 1, 1}, {0, 1, -1}, {1, 0, 1}, {1, 0, -1}, {-1, 0, 1}, {-1, 0, -1},
-        {1, 1, 0}, {1, -1, 0}, {-1, 1, 0}, {-1, -1, 0}, {0, -1, 1}, {0, -1, -1},
-        {1, 1, 1}, {1, 1, -1}, {1, -1, 1}, {1, -1, -1}, {-1, 1, 1}, {-1, 1, -1},
-        {-1, -1, 1}, {-1, -1, -1}};
-
-
-    for (int i = 0; i < 27; i ++) {
-        int x = ix + d[i][0];
-        int y = iy + d[i][1];
-        int z = iz + d[i][2];
-        if (x >= 0 && x <= ndim && y >=0 && y <= ndim && z >= 0 && z <= ndim)
-            buckets[len ++] = zm_encode(unsigned(x) & HASH_MASK,
-                    unsigned(y) & HASH_MASK, unsigned(z) & HASH_MASK);
-    }
-    */
     return len;
     /* END TASK */
 }

@@ -185,10 +185,19 @@ void compute_accel(sim_state_t* state, sim_param_t* params)
     int n = state->n;
 
     // Rehash the particles
+#ifdef STATS
+    double t0 = omp_get_wtime();
+#endif
     hash_particles(state, h);
 
+#ifdef STATS
+    double t1 = omp_get_wtime();
+#endif
     // Compute density and color
-    compute_density(state, params);
+   compute_density(state, params);
+#ifdef STATS
+    double t2 = omp_get_wtime();
+#endif
 
     // Start with gravity and surface forces
     for (int i = 0; i < n; ++i)
@@ -222,5 +231,13 @@ void compute_accel(sim_state_t* state, sim_param_t* params)
             update_forces(pi, pj, h2, rho0, C0, Cp, Cv);
         }
     }
+#endif
+
+#ifdef STATS
+    double t3 = omp_get_wtime();
+    stats& stat = stats::get_stats();
+    stat.accu_time(0, 1, t1-t0);
+    stat.accu_time(0, 2, t2-t1);
+    stat.accu_time(0, 3, t3-t2);
 #endif
 }
