@@ -1,9 +1,11 @@
 # -- Compile settings for the cluster
 CPP       = g++ #CC
-CPPFLAGS  = -std=c++11 -Wall -O3 -fopenmp
+CPPFLAGS  = -std=c++11 -Wall -O3 -fopenmp -mfma -march=native -ffast-math
 CPPFLAGS += -DUSE_BUCKETING
+ifdef AVX
 CPPFLAGS += -DVEC_BIN 
-CPPFLAGS += -DAVX=512 -mavx2 -mfma -march=native -ffast-math
+CPPFLAGS += -DAVX=$(AVX) -mavx2 
+endif
 #CPPFLAGS += -DSTATS
 OPTFLAGS = -O3
 LIBS     = -lm

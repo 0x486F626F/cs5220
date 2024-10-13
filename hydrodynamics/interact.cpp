@@ -167,12 +167,14 @@ void compute_density(sim_state_t* s, sim_param_t* params)
 #ifdef VEC_BIN
         std::vector <unsigned> neighbors = neighbor_buckets(pi, h);
 #ifdef AVX
-        size_t est_size = neighbors.size() * s->buckets[neighbors[0]].size();
-        if (est_size > AVX) {
+        size_t nb_size = 0;
+        for (const unsigned& ni:neighbors)
+            nb_size += s->buckets[ni].size();
+        if (nb_size > AVX) {
             std::vector <float> x, y, z;
-            x.reserve(est_size*2);
-            y.reserve(est_size*2);
-            z.reserve(est_size*2);
+            x.reserve(nb_size);
+            y.reserve(nb_size);
+            z.reserve(nb_size);
 
             neighbor_xyz(x, y, z, s, neighbors, i);
             pi->rho += compute_rho_delta_avx2(
