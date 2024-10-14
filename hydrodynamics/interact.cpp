@@ -44,6 +44,17 @@ void update_density(particle_t* pi, particle_t* pj, float h2, float C)
     }
 }
 
+inline
+void update_density_i(particle_t* pi, particle_t* pj, float h2, float C)
+{
+    float r2 = vec3_dist2(pi->x, pj->x);
+    float z  = h2-r2;
+    if (z > 0) {
+        float rho_ij = C*z*z*z;
+        pi->rho += rho_ij;
+    }
+}
+
 void compute_density(sim_state_t* s, sim_param_t* params)
 {
     int n = s->n;
@@ -57,12 +68,23 @@ void compute_density(sim_state_t* s, sim_param_t* params)
     float C  = ( 315.0/64.0/M_PI ) * s->mass / h9;
 
     // Clear densities
-    for (int i = 0; i < n; ++i)
-        p[i].rho = 0;
+    //for (int i = 0; i < n; ++i)
+    //    p[i].rho = 0;
 
     // Accumulate density info
 #ifdef USE_BUCKETING
     /* BEGIN TASK */
+#pragma omp parallel for 
+    for (int i = 0; i < n; i++) {
+        particle_t* pi = p+i;
+        pi->rho = ( 315.0/64.0/M_PI ) * s->mass / h3;
+        unsigned buckets[MAX_NBR_BINS];
+        unsigned nbr = particle_neighborhood(buckets, pi, h);
+        for (unsigned j = 0; j < nbr; j++) {
+            for (particle_t *pj = hash[buckets[j]]; pj; pj = pj->next)
+                if(pi != pj) update_density_i(pi, pj, h2, C);
+        }
+    }
     /* END TASK */
 #else
     for (int i = 0; i < n; ++i) {
@@ -120,6 +142,32 @@ void update_forces(particle_t* pi, particle_t* pj, float h2,
     }
 }
 
+inline
+void update_forces_i(particle_t* pi, particle_t* pj, float h2,
+                   float rho0, float C0, float Cp, float Cv)
+{
+    float dx[3];
+    vec3_diff(dx, pi->x, pj->x);
+    float r2 = vec3_len2(dx);
+    if (r2 < h2) {
+        const float rhoi = pi->rho;
+        const float rhoj = pj->rho;
+        float q = sqrt(r2/h2);
+        float u = 1-q;
+        float w0 = C0 * u/rhoi/rhoj;
+        float wp = w0 * Cp * (rhoi+rhoj-2*rho0) * u/q;
+        float wv = w0 * Cv;
+        float dv[3];
+        vec3_diff(dv, pi->v, pj->v);
+
+        // Equal and opposite pressure forces
+        vec3_saxpy(pi->a,  wp, dx);
+        
+        // Equal and opposite viscosity forces
+        vec3_saxpy(pi->a,  wv, dv);
+    }
+}
+
 void compute_accel(sim_state_t* state, sim_param_t* params)
 {
     // Unpack basic parameters
@@ -130,22 +178,27 @@ void compute_accel(sim_state_t* state, sim_param_t* params)
     const float g    = params->g;
     const float mass = state->mass;
     const float h2   = h*h;
-    stats& stat = stats::get_stats();
 
     // Unpack system state
     particle_t* p = state->part;
     particle_t** hash = state->hash;
     int n = state->n;
 
-    double t0 = omp_get_wtime();
     // Rehash the particles
+#ifdef STATS
+    double t0 = omp_get_wtime();
+#endif
     hash_particles(state, h);
 
+#ifdef STATS
     double t1 = omp_get_wtime();
+#endif
     // Compute density and color
-    compute_density(state, params);
-
+   compute_density(state, params);
+#ifdef STATS
     double t2 = omp_get_wtime();
+#endif
+
     // Start with gravity and surface forces
     for (int i = 0; i < n; ++i)
         vec3_set(p[i].a,  0, -g, 0);
@@ -158,6 +211,17 @@ void compute_accel(sim_state_t* state, sim_param_t* params)
     // Accumulate forces
 #ifdef USE_BUCKETING
     /* BEGIN TASK */
+#pragma omp parallel for 
+    for (int i = 0; i < n; i++) {
+        particle_t* pi = p+i;
+        unsigned buckets[MAX_NBR_BINS];
+        unsigned nbr = particle_neighborhood(buckets, pi, h);
+        for (unsigned j = 0; j < nbr; j++) {
+            for (particle_t *pj = hash[buckets[j]]; pj; pj = pj->next) 
+                if (pi != pj)
+                    update_forces_i(pi, pj, h2, rho0, C0, Cp, Cv);
+        }
+    }
     /* END TASK */
 #else
     for (int i = 0; i < n; ++i) {
@@ -168,9 +232,12 @@ void compute_accel(sim_state_t* state, sim_param_t* params)
         }
     }
 #endif
+
+#ifdef STATS
     double t3 = omp_get_wtime();
+    stats& stat = stats::get_stats();
     stat.accu_time(0, 1, t1-t0);
     stat.accu_time(0, 2, t2-t1);
     stat.accu_time(0, 3, t3-t2);
+#endif
 }
-
