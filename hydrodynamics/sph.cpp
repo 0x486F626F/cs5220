@@ -102,7 +102,11 @@ sim_state_t* place_particles(sim_param_t* param,
 void normalize_mass(sim_state_t* s, sim_param_t* param)
 {
     s->mass = 1;
+#ifdef VEC_BIN
+    binhash_particles(s, param->h);
+#else
     hash_particles(s, param->h);
+#endif
     compute_density(s, param);
     float rho0 = param->rho0;
     float rho2s = 0;

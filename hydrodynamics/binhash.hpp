@@ -47,5 +47,9 @@ unsigned particle_bucket(particle_t* p, float h);
 unsigned particle_neighborhood(unsigned* buckets, particle_t* p, float h);
 void hash_particles(sim_state_t* s, float h);
 
+#include <vector>
+void binhash_particles(sim_state_t* s, float h);
+std::vector <unsigned> neighbor_buckets(particle_t *p, float h);
+
 /*@q*/
 #endif /* BINHASH_H */
